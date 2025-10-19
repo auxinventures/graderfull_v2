@@ -1,68 +1,50 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createSupabaseClient } from "@/lib/supabaseClient";
-
-const supabase = createSupabaseClient();
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function GradingPage() {
-  const [input, setInput] = useState("");
-  const [result, setResult] = useState("");
-  const [error, setError] = useState("");
-  const [userId, setUserId] = useState<string | null>(null);
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function getUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
-    }
-    getUser();
+    const fetchUsers = async () => {
+      try {
+        const { data, error } = await supabase.from("users").select("*");
+        if (error) throw error;
+        setUsers(data || []);
+      } catch (err) {
+        console.error("Error fetching users:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
   }, []);
 
-  async function handleGrade() {
-    if (!userId) {
-      setError("Not logged in");
-      return;
-    }
-
-    setError("");
-    setResult("");
-
-    const res = await fetch("/api/grade", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, input }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || "Something went wrong");
-    } else {
-      setResult(data.result);
-    }
+  if (loading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center">
+        <p>Loading users...</p>
+      </main>
+    );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-100">
-      <div className="bg-white p-6 rounded shadow w-96">
-        <h1 className="text-xl font-bold mb-4">Grade an Essay</h1>
-        <textarea
-          className="border p-2 w-full mb-3"
-          placeholder="Paste your text here..."
-          rows={6}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-        />
-        <button
-          onClick={handleGrade}
-          className="bg-blue-600 text-white px-4 py-2 rounded w-full"
-        >
-          Grade
-        </button>
-
-        {error && <p className="text-red-500 mt-3">{error}</p>}
-        {result && <p className="text-green-600 mt-3">{result}</p>}
-      </div>
+    <main className="p-8">
+      <h1 className="text-2xl font-bold mb-4">Users</h1>
+      {users.length === 0 ? (
+        <p>No users found.</p>
+      ) : (
+        <ul className="space-y-2">
+          {users.map((user, i) => (
+            <li key={i} className="rounded bg-gray-100 p-3">
+              {JSON.stringify(user)}
+            </li>
+          ))}
+        </ul>
+      )}
     </main>
   );
 }
